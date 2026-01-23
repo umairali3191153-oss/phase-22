@@ -1,11 +1,10 @@
+'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { VantaEffect } from '../types';
+import React, { useEffect, useRef, useState, memo } from 'react';
+import { VantaEffect } from '../types/index';
 
 interface VantaBackgroundProps {
   effect: VantaEffect;
-  isActive: boolean;
-  scrollProgress: number; 
   isDarkMode: boolean;
 }
 
@@ -16,35 +15,58 @@ declare global {
   }
 }
 
-const VantaBackground: React.FC<VantaBackgroundProps> = ({ effect, isActive, isDarkMode }) => {
+const VantaBackground: React.FC<VantaBackgroundProps> = memo(({ effect, isDarkMode }) => {
   const vantaRef = useRef<HTMLDivElement>(null);
   const effectInstance = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
+  const lastEffect = useRef<VantaEffect | null>(null);
 
   useEffect(() => {
-    if (effect === VantaEffect.NONE) {
-      setIsReady(false);
+    let timer: NodeJS.Timeout;
+
+    const cleanup = () => {
       if (effectInstance.current) {
-        effectInstance.current.destroy();
+        try {
+          // Some Vanta effects have specific cleanup needs
+          effectInstance.current.destroy();
+        } catch (e) {
+          console.warn('Vanta cleanup warning:', e);
+        }
         effectInstance.current = null;
       }
-      return;
-    }
-
-    if (!vantaRef.current) return;
+    };
 
     const initVanta = () => {
-      if (effectInstance.current) {
-        effectInstance.current.destroy();
-        effectInstance.current = null;
+      if (typeof window === 'undefined' || !vantaRef.current) return false;
+
+      // Ensure core dependencies are ready
+      if (!window.VANTA || !window.THREE) {
+        return false;
       }
 
-      if (!window.VANTA || !window.VANTA[effect]) return;
+      // If "NONE", just clean up and exit
+      if (effect === VantaEffect.NONE) {
+        cleanup();
+        setIsReady(true);
+        return true;
+      }
 
-      const bgColor = isDarkMode ? 0x020617 : 0xffffff; 
+      // Ensure the specific effect script is loaded
+      if (!window.VANTA[effect]) {
+        return false;
+      }
+
+      // Prevent redundant re-init if nothing changed
+      if (lastEffect.current === effect && effectInstance.current) {
+        return true;
+      }
+
+      cleanup();
+
+      const bgColor = isDarkMode ? 0x020617 : 0xffffff;
       const primaryColor = 0x25d366;
 
-      const commonConfig = {
+      const baseConfig = {
         el: vantaRef.current,
         mouseControls: true,
         touchControls: true,
@@ -61,15 +83,15 @@ const VantaBackground: React.FC<VantaBackgroundProps> = ({ effect, isActive, isD
         switch (effect) {
           case VantaEffect.CLOUDS:
             effectInstance.current = window.VANTA.CLOUDS({
-              ...commonConfig,
+              ...baseConfig,
               skyColor: isDarkMode ? 0x020617 : 0x2196f3,
-              cloudColor: isDarkMode ? 0x1e293b : 0xe8f5e9, 
-              speed: 1.5,
+              cloudColor: isDarkMode ? 0x1e293b : 0xadc1ea,
+              speed: 1.2,
             });
             break;
           case VantaEffect.DOTS:
             effectInstance.current = window.VANTA.DOTS({
-              ...commonConfig,
+              ...baseConfig,
               color: primaryColor,
               color2: isDarkMode ? 0x1e293b : 0x000000,
               size: 2.5,
@@ -78,74 +100,83 @@ const VantaBackground: React.FC<VantaBackgroundProps> = ({ effect, isActive, isD
             break;
           case VantaEffect.NET:
             effectInstance.current = window.VANTA.NET({
-              ...commonConfig,
+              ...baseConfig,
               color: primaryColor,
               backgroundColor: isDarkMode ? bgColor : 0xf1f5f9,
-              points: 18.0,
-              maxDistance: 22.0,
-              spacing: 16.0,
+              points: 15.0,
+              maxDistance: 20.0,
+              spacing: 15.0,
             });
             break;
           case VantaEffect.TOPOLOGY:
             effectInstance.current = window.VANTA.TOPOLOGY({
-              ...commonConfig,
+              ...baseConfig,
               color: isDarkMode ? 0x166534 : 0x25d366,
-              backgroundColor: bgColor
             });
             break;
           case VantaEffect.WAVES:
             effectInstance.current = window.VANTA.WAVES({
-              ...commonConfig,
+              ...baseConfig,
               color: isDarkMode ? 0x064e3b : 0x25d366,
               shininess: isDarkMode ? 20.0 : 40.0,
-              waveHeight: 15.0,
-              waveSpeed: 1.0,
-            });
-            break;
-          case VantaEffect.RINGS:
-            effectInstance.current = window.VANTA.RINGS({
-              ...commonConfig,
-              color: primaryColor,
-              backgroundColor: isDarkMode ? bgColor : 0xffffff,
+              waveHeight: 12.0,
+              waveSpeed: 0.8,
             });
             break;
           case VantaEffect.FOG:
             effectInstance.current = window.VANTA.FOG({
-              ...commonConfig,
+              ...baseConfig,
               highlightColor: isDarkMode ? 0x14532d : 0x25d366,
               midtoneColor: isDarkMode ? 0x064e3b : 0x86efac,
               lowlightColor: isDarkMode ? 0x020617 : 0xffffff,
               baseColor: bgColor,
-              speed: 3.0,
+              speed: 2.5,
             });
             break;
+          default:
+            // Fallback for missing effects
+            setIsReady(true);
+            return true;
         }
+
+        lastEffect.current = effect;
         setIsReady(true);
+        return true;
       } catch (err) {
-        console.warn(`Vanta [${effect}] init failed:`, err);
+        console.error(`Vanta [${effect}] Init Error:`, err);
+        return false;
       }
     };
 
-    initVanta();
+    // Retry loop with backoff to wait for scripts
+    const attemptInit = () => {
+      const success = initVanta();
+      if (!success) {
+        timer = setTimeout(attemptInit, 250);
+      }
+    };
+
+    attemptInit();
 
     return () => {
-      if (effectInstance.current) {
-        effectInstance.current.destroy();
-        effectInstance.current = null;
-      }
+      clearTimeout(timer);
+      cleanup();
     };
   }, [effect, isDarkMode]);
 
   return (
     <div 
       ref={vantaRef} 
-      className={`vanta-container fixed inset-0 transition-opacity duration-300 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+      className={`vanta-container fixed inset-0 transition-opacity duration-1000 ease-in-out ${isReady ? 'opacity-100' : 'opacity-0'}`}
       style={{ 
         zIndex: -1,
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        background: isDarkMode ? '#020617' : '#ffffff'
       }}
     />
   );
-};
+});
+
+VantaBackground.displayName = 'VantaBackground';
 
 export default VantaBackground;

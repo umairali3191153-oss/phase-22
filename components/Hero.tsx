@@ -1,13 +1,13 @@
 
+'use client';
+
 import React from 'react';
 
 const Hero: React.FC = () => {
   return (
-    <section id="hero" className="min-h-screen flex flex-col items-center justify-center pt-24 px-6 text-center relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-transparent pointer-events-none"></div>
-      
+    <section id="hero" className="min-h-screen flex flex-col items-center justify-center pt-24 px-6 text-center relative">
       <div className="max-w-5xl mx-auto space-y-10 relative z-10">
-        <div className="inline-flex items-center space-x-2 px-4 py-2 bg-black/5 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/20 rounded-full animate-fade-in">
+        <div className="inline-flex items-center space-x-2 px-4 py-2 bg-black/5 dark:bg-white/10 backdrop-blur-md border border-black/10 dark:border-white/20 rounded-full">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#25D366] opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-[#25D366]"></span>
@@ -27,7 +27,6 @@ const Hero: React.FC = () => {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8">
           <button className="group relative w-full sm:w-auto px-12 py-5 bg-[#25D366] text-white rounded-full font-bold text-xl shadow-[0_20px_50px_rgba(37,211,102,0.4)] hover:scale-105 transition-all active:scale-95">
             Start Free Trial
-            <span className="absolute inset-0 rounded-full bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity"></span>
           </button>
           <button className="w-full sm:w-auto px-12 py-5 bg-black/5 dark:bg-white/10 border border-black/10 dark:border-white/20 backdrop-blur-xl text-black dark:text-white rounded-full font-bold text-xl hover:bg-black/10 dark:hover:bg-white/20 transition-all">
             Book a Demo
